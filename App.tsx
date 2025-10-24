@@ -111,8 +111,13 @@ const DetailView: React.FC<{ book: Book; onBack: () => void; isFavorite: boolean
         fetchAllDetails();
     }, [book.key, book.title, book.author_name]);
 
+    const shareUrl = `https://openlibrary.org${book.key}`;
+    const shareText = `Check out this book: ${book.title} by ${book.author_name?.join(', ') || 'Unknown Author'}`;
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
+    const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+    const instagramUrl = `https://www.instagram.com`;
+
     const handleShare = async () => {
-        const shareUrl = `https://openlibrary.org${book.key}`;
         const shareData = {
             title: book.title,
             text: `Check out this book: ${book.title} by ${book.author_name?.join(', ') || 'Unknown Author'}`,
@@ -201,6 +206,40 @@ const DetailView: React.FC<{ book: Book; onBack: () => void; isFavorite: boolean
                             </a>
                         </div>
                     )}
+                    <div className="mt-6 space-y-3">
+                        <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider text-center md:text-left">Share This Book</h4>
+                        <a
+                            href={twitterUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full flex items-center justify-center px-4 py-2.5 bg-[#1DA1F2] hover:bg-[#1A91DA] text-white rounded-lg transition-all duration-200 text-sm font-semibold shadow-md active:scale-95"
+                            aria-label="Share on Twitter"
+                        >
+                            <TwitterIcon className="h-5 w-5 mr-2" />
+                            <span>Share on Twitter</span>
+                        </a>
+                        <a
+                            href={facebookUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full flex items-center justify-center px-4 py-2.5 bg-[#4267B2] hover:bg-[#3B5998] text-white rounded-lg transition-all duration-200 text-sm font-semibold shadow-md active:scale-95"
+                            aria-label="Share on Facebook"
+                        >
+                            <FacebookIcon className="h-5 w-5 mr-2" />
+                            <span>Share on Facebook</span>
+                        </a>
+                        <a
+                            href={instagramUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full flex items-center justify-center px-4 py-2.5 bg-gradient-to-r from-[#833ab4] via-[#fd1d1d] to-[#fcb045] hover:opacity-90 text-white rounded-lg transition-all duration-200 text-sm font-semibold shadow-md active:scale-95"
+                            aria-label="Share on Instagram"
+                            title="Instagram does not support direct link sharing. This will open Instagram."
+                        >
+                            <InstagramIcon className="h-5 w-5 mr-2" />
+                            <span>Share on Instagram</span>
+                        </a>
+                    </div>
                 </div>
                 <div className="md:col-span-2">
                     <div className="flex items-start justify-between gap-4">
