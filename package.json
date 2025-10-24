@@ -1,8 +1,26 @@
 {
-  "name": "raff-elkalimat",
-  "version": "0.1.0",
+  "name": "reff-alkalimat",
   "private": true,
-  "description": "An online book library where users can access millions of books, authors, and libraries from around the world using the Open Library API.",
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@react-google-maps/api": "2.19.2",
+    "framer-motion": "10.12.4",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "@google/genai": "latest"
+  },
+  "devDependencies": {
+    "@types/react": "18.2.14",
+    "@types/react-dom": "18.2.6",
+    "@vitejs/plugin-react": "3.0.0",
+    "vite": "4.2.0"
+  },
   "engines": {
     "node": ">=20.0.0"
   }
