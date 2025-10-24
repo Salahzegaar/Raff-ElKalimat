@@ -7,7 +7,7 @@ import { useFavorites } from './hooks/useFavorites';
 import { useBookReviews } from './hooks/useBookReviews';
 import BookCard from './components/BookCard';
 import LoadingSpinner from './components/LoadingSpinner';
-import { BookOpenIcon, SearchIcon, ArrowLeftIcon, CloseIcon, EyeIcon, DownloadIcon, ChevronLeftIcon, ChevronRightIcon, SunIcon, MoonIcon, HeartIcon, BookmarkIcon, GlobeIcon, ShareIcon, TwitterIcon, FacebookIcon, InstagramIcon } from './components/icons';
+import { BookOpenIcon, SearchIcon, ArrowLeftIcon, CloseIcon, EyeIcon, DownloadIcon, ChevronLeftIcon, ChevronRightIcon, SunIcon, MoonIcon, HeartIcon, BookmarkIcon, GlobeIcon, ShareIcon, TwitterIcon, FacebookIcon, InstagramIcon, LinkIcon, CheckIcon } from './components/icons';
 import HomeView from './components/HomeView';
 import AboutPage from './components/AboutPage';
 import PrivacyPolicyPage from './components/PrivacyPolicyPage';
@@ -50,7 +50,6 @@ const DetailView: React.FC<{ book: Book; onBack: () => void; isFavorite: boolean
     const [details, setDetails] = useState<BookDetails | null>(null);
     const [isLoadingDetails, setIsLoadingDetails] = useState<boolean>(true);
     const [detailsError, setDetailsError] = useState<string | null>(null);
-    const [linkCopied, setLinkCopied] = useState<boolean>(false);
 
     const [groundedInfo, setGroundedInfo] = useState<GenerateContentResponse | null>(null);
     const [isGroundedInfoLoading, setIsGroundedInfoLoading] = useState<boolean>(true);
@@ -59,6 +58,8 @@ const DetailView: React.FC<{ book: Book; onBack: () => void; isFavorite: boolean
     const [aiReviews, setAiReviews] = useState<GenerateContentResponse | null>(null);
     const [isAiReviewsLoading, setIsAiReviewsLoading] = useState<boolean>(true);
     const [aiReviewsError, setAiReviewsError] = useState<string | null>(null);
+    
+    const [isLinkCopied, setIsLinkCopied] = useState(false);
 
     const { reviews: userReviews, addReview: addUserReview } = useBookReviews(book.key);
     const [newReviewText, setNewReviewText] = useState('');
@@ -117,28 +118,25 @@ const DetailView: React.FC<{ book: Book; onBack: () => void; isFavorite: boolean
     const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
     const instagramUrl = `https://www.instagram.com`;
 
-    const handleShare = async () => {
-        const shareData = {
-            title: book.title,
-            text: `Check out this book: ${book.title} by ${book.author_name?.join(', ') || 'Unknown Author'}`,
-            url: shareUrl,
-        };
+    const handleCopyLink = () => {
+        navigator.clipboard.writeText(shareUrl).then(() => {
+            setIsLinkCopied(true);
+            setTimeout(() => setIsLinkCopied(false), 2500);
+        }).catch(err => {
+            console.error('Failed to copy text: ', err);
+        });
+    };
 
+    const handleNativeShare = async () => {
         if (navigator.share) {
             try {
-                await navigator.share(shareData);
+                await navigator.share({
+                    title: book.title,
+                    text: shareText,
+                    url: shareUrl,
+                });
             } catch (error) {
                 console.error('Error sharing:', error);
-            }
-        } else {
-            // Fallback to copying to clipboard
-            try {
-                await navigator.clipboard.writeText(shareUrl);
-                setLinkCopied(true);
-                setTimeout(() => setLinkCopied(false), 2000); // Hide message after 2 seconds
-            } catch (error) {
-                console.error('Failed to copy link:', error);
-                alert('Failed to copy link.');
             }
         }
     };
@@ -206,39 +204,69 @@ const DetailView: React.FC<{ book: Book; onBack: () => void; isFavorite: boolean
                             </a>
                         </div>
                     )}
-                    <div className="mt-6 space-y-3">
-                        <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider text-center md:text-left">Share This Book</h4>
-                        <a
-                            href={twitterUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-full flex items-center justify-center px-4 py-2.5 bg-[#1DA1F2] hover:bg-[#1A91DA] text-white rounded-lg transition-all duration-200 text-sm font-semibold shadow-md active:scale-95"
-                            aria-label="Share on Twitter"
-                        >
-                            <TwitterIcon className="h-5 w-5 mr-2" />
-                            <span>Share on Twitter</span>
-                        </a>
-                        <a
-                            href={facebookUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-full flex items-center justify-center px-4 py-2.5 bg-[#4267B2] hover:bg-[#3B5998] text-white rounded-lg transition-all duration-200 text-sm font-semibold shadow-md active:scale-95"
-                            aria-label="Share on Facebook"
-                        >
-                            <FacebookIcon className="h-5 w-5 mr-2" />
-                            <span>Share on Facebook</span>
-                        </a>
-                        <a
-                            href={instagramUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-full flex items-center justify-center px-4 py-2.5 bg-gradient-to-r from-[#833ab4] via-[#fd1d1d] to-[#fcb045] hover:opacity-90 text-white rounded-lg transition-all duration-200 text-sm font-semibold shadow-md active:scale-95"
-                            aria-label="Share on Instagram"
-                            title="Instagram does not support direct link sharing. This will open Instagram."
-                        >
-                            <InstagramIcon className="h-5 w-5 mr-2" />
-                            <span>Share on Instagram</span>
-                        </a>
+                    <div className="mt-8">
+                        <h4 className="text-base font-bold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wider text-center md:text-left">Share This Book</h4>
+                        <div className="space-y-3">
+                            {navigator.share && (
+                                <button
+                                    onClick={handleNativeShare}
+                                    className="w-full flex items-center justify-center px-4 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-all duration-300 text-base font-semibold shadow-md hover:shadow-lg active:scale-95 transform hover:-translate-y-0.5"
+                                    aria-label="Share this book"
+                                >
+                                    <ShareIcon className="h-6 w-6 mr-3" />
+                                    <span>Share...</span>
+                                </button>
+                            )}
+                            <a
+                                href={twitterUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-full flex items-center justify-center px-4 py-3 bg-[#1DA1F2] hover:bg-[#1A91DA] text-white rounded-lg transition-all duration-300 text-base font-semibold shadow-md hover:shadow-lg active:scale-95 transform hover:-translate-y-0.5"
+                                aria-label="Share on Twitter"
+                            >
+                                <TwitterIcon className="h-6 w-6 mr-3" />
+                                <span>Share on Twitter</span>
+                            </a>
+                            <a
+                                href={facebookUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-full flex items-center justify-center px-4 py-3 bg-[#4267B2] hover:bg-[#3B5998] text-white rounded-lg transition-all duration-300 text-base font-semibold shadow-md hover:shadow-lg active:scale-95 transform hover:-translate-y-0.5"
+                                aria-label="Share on Facebook"
+                            >
+                                <FacebookIcon className="h-6 w-6 mr-3" />
+                                <span>Share on Facebook</span>
+                            </a>
+                            <a
+                                href={instagramUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-full flex items-center justify-center px-4 py-3 bg-gradient-to-r from-[#833ab4] via-[#fd1d1d] to-[#fcb045] hover:opacity-90 text-white rounded-lg transition-all duration-300 text-base font-semibold shadow-md hover:shadow-lg active:scale-95 transform hover:-translate-y-0.5"
+                                aria-label="Share on Instagram"
+                                title="Instagram does not support direct link sharing. This will open Instagram."
+                            >
+                                <InstagramIcon className="h-6 w-6 mr-3" />
+                                <span>Share on Instagram</span>
+                            </a>
+                            <button
+                                onClick={handleCopyLink}
+                                disabled={isLinkCopied}
+                                className="w-full flex items-center justify-center px-4 py-3 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-lg transition-all duration-300 text-base font-semibold shadow-md hover:shadow-lg active:scale-95 transform hover:-translate-y-0.5 disabled:opacity-70"
+                                aria-label="Copy book link"
+                            >
+                                {isLinkCopied ? (
+                                    <>
+                                        <CheckIcon className="h-6 w-6 mr-3 text-green-500" />
+                                        <span>Copied!</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <LinkIcon className="h-6 w-6 mr-3" />
+                                        <span>Copy Link</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div className="md:col-span-2">
@@ -250,20 +278,6 @@ const DetailView: React.FC<{ book: Book; onBack: () => void; isFavorite: boolean
                         </p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                          <div className="relative">
-                              <button
-                                  onClick={handleShare}
-                                  className="p-3 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors active:scale-90"
-                                  aria-label="Share book"
-                              >
-                                  <ShareIcon className="h-7 w-7" />
-                              </button>
-                              {linkCopied && (
-                                  <span className="absolute top-1/2 -left-2 -translate-x-full -translate-y-1/2 bg-gray-800 dark:bg-gray-100 text-white dark:text-gray-800 text-xs font-semibold px-2 py-1 rounded-md shadow-lg whitespace-nowrap animate-fade-in-up">
-                                      Link Copied!
-                                  </span>
-                              )}
-                          </div>
                           <button
                               onClick={() => onToggleFavorite(book)}
                               className="p-3 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors active:scale-90"
