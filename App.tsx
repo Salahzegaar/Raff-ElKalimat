@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Book, BookDetails, GenerateContentResponse } from './types';
 import { searchBooks, getCoverUrl, getBookDetails } from './services/openLibraryService';
-import { getGroundedBookInfo, getBookReviews } from './services/geminiService';
+import { getGroundedBookInfo, getBookReviews, generateBookSummary } from './services/geminiService';
 import { useDebounce } from './hooks/useDebounce';
 import { useFavorites } from './hooks/useFavorites';
 import { useBookReviews } from './hooks/useBookReviews';
 import BookCard from './components/BookCard';
 import LoadingSpinner from './components/LoadingSpinner';
-import { BookOpenIcon, SearchIcon, ArrowLeftIcon, CloseIcon, EyeIcon, DownloadIcon, ChevronLeftIcon, ChevronRightIcon, SunIcon, MoonIcon, HeartIcon, BookmarkIcon, GlobeIcon, ShareIcon, TwitterIcon, FacebookIcon, InstagramIcon, LinkIcon, CheckIcon } from './components/icons';
+import { BookOpenIcon, SearchIcon, ArrowLeftIcon, CloseIcon, EyeIcon, DownloadIcon, ChevronLeftIcon, ChevronRightIcon, SunIcon, MoonIcon, HeartIcon, BookmarkIcon, GlobeIcon, ShareIcon, TwitterIcon, FacebookIcon, InstagramIcon, LinkIcon, CheckIcon, SparklesIcon } from './components/icons';
 import HomeView from './components/HomeView';
 import AboutPage from './components/AboutPage';
 import PrivacyPolicyPage from './components/PrivacyPolicyPage';
@@ -59,6 +59,10 @@ const DetailView: React.FC<{ book: Book; onBack: () => void; isFavorite: boolean
     const [isAiReviewsLoading, setIsAiReviewsLoading] = useState<boolean>(true);
     const [aiReviewsError, setAiReviewsError] = useState<string | null>(null);
     
+    const [aiSummary, setAiSummary] = useState<GenerateContentResponse | null>(null);
+    const [isAiSummaryLoading, setIsAiSummaryLoading] = useState<boolean>(false);
+    const [aiSummaryError, setAiSummaryError] = useState<string | null>(null);
+
     const [isLinkCopied, setIsLinkCopied] = useState(false);
 
     const { reviews: userReviews, addReview: addUserReview } = useBookReviews(book.key);
@@ -111,6 +115,22 @@ const DetailView: React.FC<{ book: Book; onBack: () => void; isFavorite: boolean
         };
         fetchAllDetails();
     }, [book.key, book.title, book.author_name]);
+
+    const handleGenerateSummary = async () => {
+        setIsAiSummaryLoading(true);
+        setAiSummaryError(null);
+        setAiSummary(null);
+        try {
+            const author = book.author_name?.[0] || '';
+            const summaryData = await generateBookSummary(book.title, author);
+            setAiSummary(summaryData);
+        } catch (error) {
+            setAiSummaryError('Could not generate an AI summary for this book. Please try again.');
+            console.error(error);
+        } finally {
+            setIsAiSummaryLoading(false);
+        }
+    };
 
     const shareUrl = `https://openlibrary.org${book.key}`;
     const shareText = `Check out this book: ${book.title} by ${book.author_name?.join(', ') || 'Unknown Author'}`;
@@ -318,6 +338,43 @@ const DetailView: React.FC<{ book: Book; onBack: () => void; isFavorite: boolean
                             </div>
                         )}
                     </div>
+
+                    <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                        <h3 className="flex items-center text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">
+                            <SparklesIcon className="h-6 w-6 mr-3 text-teal-600 dark:text-teal-400" />
+                            AI-Generated Summary
+                        </h3>
+                        {isAiSummaryLoading && (
+                            <div className="space-y-3">
+                                <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-full animate-pulse"></div>
+                                <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-full animate-pulse"></div>
+                                <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-5/6 animate-pulse"></div>
+                            </div>
+                        )}
+                        {!isAiSummaryLoading && aiSummary && (
+                            <div>
+                                <div className="prose dark:prose-invert text-gray-600 dark:text-gray-400 max-w-none">
+                                    <p>{aiSummary.text}</p>
+                                </div>
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-4 italic">
+                                    This summary is AI-generated and may not be completely accurate.
+                                </p>
+                            </div>
+                        )}
+                        {!isAiSummaryLoading && !aiSummary && (
+                            <div className="flex flex-col items-start">
+                                <button
+                                    onClick={handleGenerateSummary}
+                                    className="inline-flex items-center justify-center px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-all duration-200 text-sm font-semibold shadow-md active:scale-95"
+                                >
+                                    <SparklesIcon className="h-5 w-5 mr-2" />
+                                    Generate Summary
+                                </button>
+                                {aiSummaryError && <p className="text-red-500 dark:text-red-400 mt-2 text-sm">{aiSummaryError}</p>}
+                            </div>
+                        )}
+                    </div>
+
                     <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
                       <h3 className="flex items-center text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">
                         <GlobeIcon className="h-6 w-6 mr-3 text-teal-600 dark:text-teal-400" />
