@@ -1,22 +1,9 @@
 {
   "name": "raff-elkalimat",
+  "version": "0.1.0",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "@google/genai": "latest"
-  },
-  "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+  "description": "An online book library where users can access millions of books, authors, and libraries from around the world using the Open Library API.",
+  "engines": {
+    "node": ">=20.0.0"
   }
 }
