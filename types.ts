@@ -10,6 +10,7 @@ export interface Book {
   subject?: string[];
   ia?: string[];
   ebook_access?: string;
+  series?: string[];
 }
 
 export interface OpenLibrarySearchResponse {
@@ -39,6 +40,7 @@ export interface SubjectWork {
   ia?: string | string[];
   has_fulltext?: boolean;
   subject?: string[];
+  series?: string[];
 }
 
 export interface OpenLibrarySubjectResponse {

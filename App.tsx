@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Book, BookDetails, GenerateContentResponse } from './types';
 import { searchBooks, getCoverUrl, getBookDetails } from './services/openLibraryService';
 import { getGroundedBookInfo, getBookReviews, generateBookSummary } from './services/geminiService';
 import { useDebounce } from './hooks/useDebounce';
 import { useFavorites } from './hooks/useFavorites';
 import { useBookReviews } from './hooks/useBookReviews';
+import { useDownloadCount } from './hooks/useDownloadCount';
 import BookCard from './components/BookCard';
 import LoadingSpinner from './components/LoadingSpinner';
 import { BookOpenIcon, SearchIcon, ArrowLeftIcon, CloseIcon, EyeIcon, DownloadIcon, ChevronLeftIcon, ChevronRightIcon, SunIcon, MoonIcon, HeartIcon, BookmarkIcon, GlobeIcon, ShareIcon, TwitterIcon, FacebookIcon, InstagramIcon, LinkIcon, CheckIcon, SparklesIcon } from './components/icons';
@@ -14,10 +15,20 @@ import PrivacyPolicyPage from './components/PrivacyPolicyPage';
 import DisclaimerPage from './components/DisclaimerPage';
 import DMCAPage from './components/DMCAPage';
 import FavoritesView from './components/FavoritesView';
+import WelcomeModal from './components/WelcomeModal';
+import ConfirmationModal from './components/ConfirmationModal';
 
 type LegalPage = 'about' | 'privacy' | 'disclaimer' | 'dmca';
 type View = 'main' | 'favorites' | LegalPage;
 type Theme = 'light' | 'dark';
+type SortOption = 'relevance' | 'title' | 'author' | 'year_desc';
+
+const sortOptions: { key: SortOption; label: string }[] = [
+  { key: 'relevance', label: 'Relevance' },
+  { key: 'title', label: 'Title (A-Z)' },
+  { key: 'author', label: 'Author (A-Z)' },
+  { key: 'year_desc', label: 'Newest First' },
+];
 
 const Header: React.FC<{ onLogoClick: () => void, onViewFavorites: () => void, theme: Theme, onThemeToggle: () => void }> = ({ onLogoClick, onViewFavorites, theme, onThemeToggle }) => (
     <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg shadow-md sticky top-0 z-20 border-b border-gray-200 dark:border-gray-800">
@@ -46,7 +57,7 @@ const Header: React.FC<{ onLogoClick: () => void, onViewFavorites: () => void, t
     </header>
 );
 
-const DetailView: React.FC<{ book: Book; onBack: () => void; isFavorite: boolean; onToggleFavorite: (book: Book) => void; }> = ({ book, onBack, isFavorite, onToggleFavorite }) => {
+const DetailView: React.FC<{ book: Book; onBack: () => void; isFavorite: boolean; onToggleFavorite: (book: Book) => void; onSearchSeries: (seriesName: string) => void; onRequestDownload: (book: Book) => void; getDownloadCount: (bookKey: string) => number; }> = ({ book, onBack, isFavorite, onToggleFavorite, onSearchSeries, onRequestDownload, getDownloadCount }) => {
     const [details, setDetails] = useState<BookDetails | null>(null);
     const [isLoadingDetails, setIsLoadingDetails] = useState<boolean>(true);
     const [detailsError, setDetailsError] = useState<string | null>(null);
@@ -67,6 +78,8 @@ const DetailView: React.FC<{ book: Book; onBack: () => void; isFavorite: boolean
 
     const { reviews: userReviews, addReview: addUserReview } = useBookReviews(book.key);
     const [newReviewText, setNewReviewText] = useState('');
+
+    const downloadCount = getDownloadCount(book.key);
 
     useEffect(() => {
         const fetchAllDetails = async () => {
@@ -156,7 +169,12 @@ const DetailView: React.FC<{ book: Book; onBack: () => void; isFavorite: boolean
                     url: shareUrl,
                 });
             } catch (error) {
-                console.error('Error sharing:', error);
+                // User cancelling the share sheet is not an error.
+                if (error instanceof DOMException && error.name === 'AbortError') {
+                    // Silently ignore.
+                } else {
+                    console.error('Error sharing:', error);
+                }
             }
         }
     };
@@ -212,16 +230,13 @@ const DetailView: React.FC<{ book: Book; onBack: () => void; isFavorite: boolean
                                 <EyeIcon className="h-5 w-5 mr-2" />
                                 <span>Read Book</span>
                             </a>
-                            <a
-                                href={`https://archive.org/download/${book.ia[0]}/${book.ia[0]}.pdf`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                download
+                            <button
+                                onClick={() => onRequestDownload(book)}
                                 className="inline-flex items-center justify-center px-4 py-2.5 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-lg transition-all duration-200 text-sm font-semibold shadow-md active:scale-95"
                             >
                                 <DownloadIcon className="h-5 w-5 mr-2" />
                                 <span>Download PDF</span>
-                            </a>
+                            </button>
                         </div>
                     )}
                     <div className="mt-8">
@@ -318,6 +333,25 @@ const DetailView: React.FC<{ book: Book; onBack: () => void; isFavorite: boolean
                             <div className="flex-shrink min-w-0">
                                 <span className="font-semibold text-gray-800 dark:text-gray-200">Publishers:</span>
                                 <span className="truncate" title={book.publisher.join(', ')}> {book.publisher.slice(0, 2).join(', ')}</span>
+                            </div>
+                        )}
+                        <div className="flex items-center">
+                            <DownloadIcon className="h-4 w-4 mr-1.5 text-gray-500 dark:text-gray-400" />
+                            <span className="font-semibold text-gray-800 dark:text-gray-200 mr-1">Downloads:</span> {downloadCount.toLocaleString()}
+                        </div>
+                        {book.series && book.series[0] && (
+                            <div>
+                                <span className="font-semibold text-gray-800 dark:text-gray-200">Series:</span>
+                                <a
+                                    href="#"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        onSearchSeries(book.series![0]);
+                                    }}
+                                    className="text-teal-600 dark:text-teal-400 hover:underline ml-1"
+                                >
+                                    {book.series[0]}
+                                </a>
                             </div>
                         )}
                     </div>
@@ -493,6 +527,7 @@ const DetailView: React.FC<{ book: Book; onBack: () => void; isFavorite: boolean
 
 const App: React.FC = () => {
   const { favorites, addFavorite, removeFavorite, isFavorite } = useFavorites();
+  const { incrementDownloadCount, getDownloadCount } = useDownloadCount();
   const [query, setQuery] = useState<string>('');
   const [results, setResults] = useState<Book[]>([]);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
@@ -503,6 +538,9 @@ const App: React.FC = () => {
   const [page, setPage] = useState<number>(1);
   const [numFound, setNumFound] = useState<number>(0);
   const [view, setView] = useState<View>('main');
+  const [sortOption, setSortOption] = useState<SortOption>('relevance');
+  const [showWelcome, setShowWelcome] = useState<boolean>(false);
+  const [downloadTarget, setDownloadTarget] = useState<Book | null>(null);
 
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window !== 'undefined' && window.localStorage) {
@@ -512,6 +550,24 @@ const App: React.FC = () => {
     }
     return 'light';
   });
+
+  useEffect(() => {
+    try {
+      const hasVisited = window.localStorage.getItem('hasVisited');
+      if (!hasVisited) {
+        setShowWelcome(true);
+        window.localStorage.setItem('hasVisited', 'true'); // Set immediately to prevent re-trigger on fast refresh
+        const timer = setTimeout(() => {
+          setShowWelcome(false);
+        }, 2000); // The user requested 2 seconds
+
+        // Cleanup the timer if the component unmounts
+        return () => clearTimeout(timer);
+      }
+    } catch (error) {
+      console.error("Could not access localStorage:", error);
+    }
+  }, []); // Empty dependency array ensures this runs only once on mount
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -547,12 +603,56 @@ const App: React.FC = () => {
     performSearch(debouncedQuery, page);
   }, [debouncedQuery, page, performSearch]);
 
+  const sortedResults = useMemo(() => {
+    if (sortOption === 'relevance') {
+      return results;
+    }
+    const sorted = [...results];
+    if (sortOption === 'title') {
+      sorted.sort((a, b) => a.title.localeCompare(b.title));
+    } else if (sortOption === 'author') {
+      sorted.sort((a, b) => {
+        const authorA = a.author_name?.[0];
+        const authorB = b.author_name?.[0];
+        if (authorA && authorB) return authorA.localeCompare(authorB);
+        if (authorA) return -1;
+        if (authorB) return 1;
+        return 0;
+      });
+    } else if (sortOption === 'year_desc') {
+      sorted.sort((a, b) => (b.first_publish_year || 0) - (a.first_publish_year || 0));
+    }
+    return sorted;
+  }, [results, sortOption]);
+
   const toggleFavorite = (book: Book) => {
     if (isFavorite(book.key)) {
       removeFavorite(book.key);
     } else {
       addFavorite(book);
     }
+  };
+  
+  const handleRequestDownload = (book: Book) => {
+    setDownloadTarget(book);
+  };
+
+  const handleConfirmDownload = () => {
+    if (downloadTarget && downloadTarget.ia?.[0]) {
+      incrementDownloadCount(downloadTarget.key);
+      const url = `https://archive.org/download/${downloadTarget.ia[0]}/${downloadTarget.ia[0]}.pdf`;
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${downloadTarget.title.replace(/ /g, '_')}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    }
+    setDownloadTarget(null);
+  };
+
+  const handleCancelDownload = () => {
+      setDownloadTarget(null);
   };
 
   const handleSelectBook = (book: Book) => {
@@ -572,11 +672,13 @@ const App: React.FC = () => {
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
     setPage(1);
+    setSortOption('relevance');
   };
 
   const handleClearQuery = () => {
     setQuery('');
     setPage(1);
+    setSortOption('relevance');
   };
 
   const handleSetLegalPage = (page: LegalPage) => {
@@ -588,6 +690,22 @@ const App: React.FC = () => {
   const handleViewFavorites = () => {
     setView('favorites');
     setSelectedBook(null);
+    window.scrollTo(0, 0);
+  };
+  
+  const handleViewMore = (category: string) => {
+    setQuery(category);
+    setPage(1);
+    setSortOption('relevance');
+    window.scrollTo(0, 0);
+  };
+
+  const handleSearchSeries = (seriesName: string) => {
+    setSelectedBook(null);
+    setQuery(`series:"${seriesName}"`);
+    setPage(1);
+    setSortOption('relevance');
+    setView('main');
     window.scrollTo(0, 0);
   };
 
@@ -609,7 +727,7 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     if (selectedBook) {
-      return <DetailView book={selectedBook} onBack={handleBackFromDetail} isFavorite={isFavorite(selectedBook.key)} onToggleFavorite={toggleFavorite} />;
+      return <DetailView book={selectedBook} onBack={handleBackFromDetail} isFavorite={isFavorite(selectedBook.key)} onToggleFavorite={toggleFavorite} onSearchSeries={handleSearchSeries} onRequestDownload={handleRequestDownload} getDownloadCount={getDownloadCount} />;
     }
     
     switch(view) {
@@ -617,12 +735,12 @@ const App: React.FC = () => {
         case 'privacy': return <PrivacyPolicyPage onBack={handleBackToMain} />;
         case 'disclaimer': return <DisclaimerPage onBack={handleBackToMain} />;
         case 'dmca': return <DMCAPage onBack={handleBackToMain} />;
-        case 'favorites': return <FavoritesView favoriteBooks={favorites} onSelectBook={handleSelectBook} onToggleFavorite={toggleFavorite} isFavorite={isFavorite} onBack={handleBackToMain} />;
+        case 'favorites': return <FavoritesView favoriteBooks={favorites} onSelectBook={handleSelectBook} onToggleFavorite={toggleFavorite} isFavorite={isFavorite} onBack={handleBackToMain} onSearchSeries={handleSearchSeries} onRequestDownload={handleRequestDownload} getDownloadCount={getDownloadCount} />;
         case 'main':
         default:
             return (
                 <div className="container mx-auto p-4 md:p-8">
-                    <div className="mb-8">
+                    <div className="mb-4">
                         <div className="relative w-full">
                             <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500" />
                             <input
@@ -639,12 +757,31 @@ const App: React.FC = () => {
                             )}
                         </div>
                     </div>
+                    
+                    {!isLoading && results.length > 0 && (
+                        <div className="flex flex-wrap justify-center items-center gap-2 mb-8 text-sm">
+                            <span className="font-medium text-gray-600 dark:text-gray-400 mr-2">Sort by:</span>
+                            {sortOptions.map(option => (
+                                <button
+                                    key={option.key}
+                                    onClick={() => setSortOption(option.key)}
+                                    className={`px-3 py-1.5 rounded-full transition-all duration-200 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-950 focus:ring-teal-500/80 active:scale-95 ${
+                                        sortOption === option.key
+                                        ? 'bg-teal-600 text-white shadow-md'
+                                        : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-700'
+                                    }`}
+                                >
+                                    {option.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
 
                     {isLoading && <LoadingSpinner />}
                     {error && <p className="text-center text-red-500 dark:text-red-400">{error}</p>}
 
                     {!isLoading && !error && !debouncedQuery && (
-                        <HomeView onSelectBook={handleSelectBook} isFavorite={isFavorite} onToggleFavorite={toggleFavorite} />
+                        <HomeView onSelectBook={handleSelectBook} isFavorite={isFavorite} onToggleFavorite={toggleFavorite} onViewMore={handleViewMore} onSearchSeries={handleSearchSeries} onRequestDownload={handleRequestDownload} getDownloadCount={getDownloadCount} />
                     )}
 
                     {!isLoading && !error && debouncedQuery && results.length === 0 && (
@@ -654,13 +791,16 @@ const App: React.FC = () => {
                     {!isLoading && !error && results.length > 0 && (
                         <>
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
-                                {results.map((book, index) => (
+                                {sortedResults.map((book, index) => (
                                     <BookCard 
                                       key={book.key} 
                                       book={book} 
                                       onSelect={handleSelectBook}
                                       isFavorite={isFavorite(book.key)}
                                       onToggleFavorite={toggleFavorite}
+                                      onSearchSeries={handleSearchSeries}
+                                      onRequestDownload={handleRequestDownload}
+                                      getDownloadCount={getDownloadCount}
                                       style={{ animationDelay: `${index * 50}ms` }}
                                       className="animate-fade-in-up"
                                     />
@@ -699,6 +839,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen font-sans flex flex-col">
+      {showWelcome && <WelcomeModal />}
       <Header onLogoClick={handleBackToMain} onViewFavorites={handleViewFavorites} theme={theme} onThemeToggle={handleThemeToggle} />
       <main className="flex-grow">
         {renderContent()}
@@ -730,6 +871,14 @@ const App: React.FC = () => {
           </div>
         </div>
       </footer>
+      <ConfirmationModal
+        isOpen={!!downloadTarget}
+        onClose={handleCancelDownload}
+        onConfirm={handleConfirmDownload}
+        title="Confirm Download"
+      >
+        <p>Are you sure you want to download the PDF for <strong className="text-gray-800 dark:text-gray-100">{downloadTarget?.title}</strong>?</p>
+      </ConfirmationModal>
     </div>
   );
 };

@@ -40,7 +40,11 @@ export const searchBooks = async (query: string, page: number): Promise<OpenLibr
     return { numFound: 0, docs: [] };
   }
   try {
-    const url = `${API_BASE_URL}/search.json?q=${encodeURIComponent(query)}&fields=key,title,author_name,cover_i,first_publish_year,publisher,isbn,subject,ia,ebook_access&limit=40&page=${page}`;
+    // Construct a query that performs a general search but also boosts matches in the author field
+    // to improve relevance for author searches. The author part is treated as a phrase.
+    const escapedQuery = query.replace(/"/g, '\\"');
+    const searchQuery = `(${query}) OR author:("${escapedQuery}")^2`;
+    const url = `${API_BASE_URL}/search.json?q=${encodeURIComponent(searchQuery)}&fields=key,title,author_name,cover_i,first_publish_year,publisher,isbn,subject,ia,ebook_access,series&limit=40&page=${page}`;
     
     const response = await fetchWithRetry(url);
     const data: OpenLibrarySearchResponse = await response.json();
@@ -91,6 +95,7 @@ export const getBooksBySubject = async (subject: string, limit: number = 50): Pr
       ia: work.ia ? (Array.isArray(work.ia) ? work.ia : [work.ia]) : undefined,
       ebook_access: work.has_fulltext ? 'public' : undefined,
       subject: work.subject,
+      series: work.series,
     }));
 
     return books;

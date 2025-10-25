@@ -7,10 +7,24 @@ interface HomeViewProps {
   onSelectBook: (book: Book) => void;
   isFavorite: (bookKey: string) => boolean;
   onToggleFavorite: (book: Book) => void;
+  onViewMore: (category: string) => void;
+  onSearchSeries: (seriesName: string) => void;
+  onRequestDownload: (book: Book) => void;
+  getDownloadCount: (bookKey: string) => number;
 }
 
 const CATEGORIES = [
-  // Fiction
+  // Prioritized Arabic & Islamic Categories
+  'Classical Arabic literature',
+  'Modern Arabic literature',
+  'Arabic poetry',
+  'Islamic philosophy',
+  'Islamic history',
+  'Islamic law', // Fiqh
+  'Islamic art',
+  'Quran',
+  'Sufism',
+  // General Fiction & Literature
   'Science Fiction',
   'Fantasy',
   'Mystery',
@@ -20,18 +34,13 @@ const CATEGORIES = [
   'Adventure',
   'Young Adult',
   'Classic Literature',
-  'Novels',
-  'Arabic',
-  'Arabic literature',
   'Poetry',
-  // Non-fiction
+  // General Non-fiction
   'History',
   'Biography',
   'Science',
   'Medicine',
   'Engineering',
-  'Religion',
-  'Islam',
 ];
 
 const RECOMMENDATION_CATEGORIES = ['Philosophy', 'Psychology', 'Art', 'Travel'];
@@ -41,15 +50,34 @@ interface CategoryData {
   error: string | null;
 }
 
-const HomeView: React.FC<HomeViewProps> = ({ onSelectBook, isFavorite, onToggleFavorite }) => {
+const HomeView: React.FC<HomeViewProps> = ({ onSelectBook, isFavorite, onToggleFavorite, onViewMore, onSearchSeries, onRequestDownload, getDownloadCount }) => {
   const [categorizedBooks, setCategorizedBooks] = useState<Record<string, CategoryData>>({});
   const [recommendations, setRecommendations] = useState<CategoryData>({ books: [], error: null });
   const [isRecommendationsLoading, setIsRecommendationsLoading] = useState<boolean>(true);
+  
+  const [arabicNovels, setArabicNovels] = useState<CategoryData>({ books: [], error: null });
+  const [isArabicNovelsLoading, setIsArabicNovelsLoading] = useState<boolean>(true);
+
 
   useEffect(() => {
     const fetchAllData = async () => {
       const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
       const seenBookKeys = new Set<string>();
+
+      // Fetch the large Arabic Novels category first to prioritize it
+      setIsArabicNovelsLoading(true);
+      try {
+        const books = await getBooksBySubject('arabic novels', 1000);
+        books.forEach(book => seenBookKeys.add(book.key)); // Populate seen keys to avoid duplicates later
+        setArabicNovels({ books, error: null });
+      } catch (error) {
+        console.error(`Failed to fetch books for category: Arabic Novels`, error);
+        setArabicNovels({ books: [], error: `Failed to load Arabic Novels.` });
+      } finally {
+        setIsArabicNovelsLoading(false);
+      }
+
+      await sleep(400); // Small delay before fetching other categories
 
       // Fetch main categories sequentially with a delay
       for (const category of CATEGORIES) {
@@ -113,6 +141,21 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelectBook, isFavorite, onToggleF
         <h2 className="text-xl sm:text-3xl md:text-4xl font-bold text-gray-800 dark:text-gray-100">Welcome to Raff ElKalimat</h2>
         <p className="mt-2 text-sm sm:text-base md:text-lg text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">Discover millions of books, authors, and libraries from around the world.</p>
        </div>
+       
+       <CategoryRow
+          key="arabic-novels"
+          category="Popular Arabic Novels"
+          books={arabicNovels.books}
+          isLoading={isArabicNovelsLoading}
+          error={arabicNovels.error}
+          onSelectBook={onSelectBook}
+          isFavorite={isFavorite}
+          onToggleFavorite={onToggleFavorite}
+          onViewMore={onViewMore}
+          onSearchSeries={onSearchSeries}
+          onRequestDownload={onRequestDownload}
+          getDownloadCount={getDownloadCount}
+        />
       
       {CATEGORIES.map((category) => (
         <CategoryRow
@@ -124,6 +167,10 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelectBook, isFavorite, onToggleF
           onSelectBook={onSelectBook}
           isFavorite={isFavorite}
           onToggleFavorite={onToggleFavorite}
+          onViewMore={onViewMore}
+          onSearchSeries={onSearchSeries}
+          onRequestDownload={onRequestDownload}
+          getDownloadCount={getDownloadCount}
         />
       ))}
 
@@ -136,6 +183,10 @@ const HomeView: React.FC<HomeViewProps> = ({ onSelectBook, isFavorite, onToggleF
         onSelectBook={onSelectBook}
         isFavorite={isFavorite}
         onToggleFavorite={onToggleFavorite}
+        onViewMore={onViewMore}
+        onSearchSeries={onSearchSeries}
+        onRequestDownload={onRequestDownload}
+        getDownloadCount={getDownloadCount}
       />
 
     </div>

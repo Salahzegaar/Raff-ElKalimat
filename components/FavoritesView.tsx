@@ -9,9 +9,12 @@ interface FavoritesViewProps {
   onToggleFavorite: (book: Book) => void;
   isFavorite: (bookKey: string) => boolean;
   onBack: () => void;
+  onSearchSeries: (seriesName: string) => void;
+  onRequestDownload: (book: Book) => void;
+  getDownloadCount: (bookKey: string) => number;
 }
 
-const FavoritesView: React.FC<FavoritesViewProps> = ({ favoriteBooks, onSelectBook, onToggleFavorite, isFavorite, onBack }) => {
+const FavoritesView: React.FC<FavoritesViewProps> = ({ favoriteBooks, onSelectBook, onToggleFavorite, isFavorite, onBack, onSearchSeries, onRequestDownload, getDownloadCount }) => {
   return (
     <div className="container mx-auto p-4 md:p-8 animate-fade-in-up">
       <button
@@ -39,6 +42,9 @@ const FavoritesView: React.FC<FavoritesViewProps> = ({ favoriteBooks, onSelectBo
               onSelect={onSelectBook}
               isFavorite={isFavorite(book.key)}
               onToggleFavorite={onToggleFavorite}
+              onSearchSeries={onSearchSeries}
+              onRequestDownload={onRequestDownload}
+              getDownloadCount={getDownloadCount}
               style={{ animationDelay: `${index * 50}ms` }}
               className="animate-fade-in-up"
             />

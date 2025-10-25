@@ -11,6 +11,10 @@ interface CategoryRowProps {
   onSelectBook: (book: Book) => void;
   isFavorite: (bookKey: string) => boolean;
   onToggleFavorite: (book: Book) => void;
+  onViewMore: (category: string) => void;
+  onSearchSeries: (seriesName: string) => void;
+  onRequestDownload: (book: Book) => void;
+  getDownloadCount: (bookKey: string) => number;
 }
 
 const SkeletonCard: React.FC = () => (
@@ -21,7 +25,7 @@ const SkeletonCard: React.FC = () => (
     </div>
 );
 
-const CategoryRow: React.FC<CategoryRowProps> = ({ category, books, isLoading, error, onSelectBook, isFavorite, onToggleFavorite }) => {
+const CategoryRow: React.FC<CategoryRowProps> = ({ category, books, isLoading, error, onSelectBook, isFavorite, onToggleFavorite, onViewMore, onSearchSeries, onRequestDownload, getDownloadCount }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const scroll = (direction: 'left' | 'right') => {
@@ -37,7 +41,16 @@ const CategoryRow: React.FC<CategoryRowProps> = ({ category, books, isLoading, e
 
   return (
     <section>
-      <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">{category}</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{category}</h2>
+        <button 
+          onClick={() => onViewMore(category)}
+          className="flex items-center text-sm font-medium text-teal-600 dark:text-teal-400 hover:underline active:scale-95 transition-transform"
+        >
+          View More
+          <ChevronRightIcon className="h-4 w-4 ml-1" />
+        </button>
+      </div>
       {error ? (
         <div className="text-center py-8 px-4 bg-gray-100 dark:bg-gray-900 rounded-lg border border-dashed border-red-400/50 dark:border-red-500/30">
           <p className="text-red-600 dark:text-red-400 font-medium">Could not load books for this category.</p>
@@ -66,6 +79,9 @@ const CategoryRow: React.FC<CategoryRowProps> = ({ category, books, isLoading, e
                         className="animate-fade-in-up"
                         isFavorite={isFavorite(book.key)}
                         onToggleFavorite={onToggleFavorite}
+                        onSearchSeries={onSearchSeries}
+                        onRequestDownload={onRequestDownload}
+                        getDownloadCount={getDownloadCount}
                     />
                   </div>
                 ))
